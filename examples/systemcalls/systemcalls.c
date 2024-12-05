@@ -60,45 +60,36 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-
-   printf("\n\nPerforming a run\n\n");
-
-   //int status;
-   pid_t processId = fork();
-
-   if (processId == -1)
+    
+   pid_t pid = fork();
+   
+   //Failed to fork
+   if (-1 == pid)
    {
-      printf("Failed to fork\n");
       return false;
    }
-   
-   //Child process
-   if (processId == 0)
+
+   //Check if this is the child process
+   if (0 == pid)
    {
-      int retval = execv(command[0], command);
-      if (retval == -1)
-      {
-         printf("Failed to execv %s\n", command[0]);
-         exit(EXIT_FAILURE);
-      }
+      const char* app = command[0];
+      execv(app, command);
+
+      //Will only hit this line in case of an error
+      exit(EXIT_FAILURE);
    }
 
+   int status;
+   
+   //Check if the wait failed
+   if (-1 == wait(&status))
+   {
+       return false;
+   }
 
-    // parent process
-    int status;
-    if (waitpid(processId, &status, 0) == -1) {
-        syslog(LOG_ERR, "waitpid failed: %m");
-        return false;
-    }
-
-    // Check if the child process terminated normally
-    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-        return true;
-    }
-
-    syslog(LOG_ERR, "Command %s failed with exit status %d", command[0], WEXITSTATUS(status));
-    return false; // Command failed or returned a non-zero exi
-
+   //Query the exit status of the child process
+   return (status == 0);
+		  
 }
 
 /**
@@ -138,7 +129,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
       case 0:
         if (dup2(fd, 1) < 0) { perror("dup2"); abort(); }
         close(fd);
-        execv(command[0], &command[1]); perror("execv"); abort();
+        execv(command[0], command); perror("execv"); abort();
       default:
         close(fd);
 }
