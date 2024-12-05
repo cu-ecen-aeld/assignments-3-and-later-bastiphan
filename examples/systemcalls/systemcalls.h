@@ -6,7 +6,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
-
+#include <sys/stat.h>
+#include <syslog.h>
 bool do_system(const char *command);
 
 bool do_exec(int count, ...);

@@ -50,6 +50,7 @@ bool do_exec(int count, ...)
     // and may be removed
     command[count] = command[count];
 
+    va_end(args);
 /*
  * TODO:
  *   Execute a system command by calling fork, execv(),
@@ -60,23 +61,44 @@ bool do_exec(int count, ...)
  *
 */
 
-   int status;
+   printf("\n\nPerforming a run\n\n");
+
+   //int status;
    pid_t processId = fork();
 
    if (processId == -1)
    {
-	return false;
+      printf("Failed to fork\n");
+      return false;
    }
-
-   if (execv(command[0], &command[1]) == -1)
+   
+   //Child process
+   if (processId == 0)
    {
-	   return false;
+      int retval = execv(command[0], command);
+      if (retval == -1)
+      {
+         printf("Failed to execv %s\n", command[0]);
+         exit(EXIT_FAILURE);
+      }
    }
-   wait(&status); 
-    
-    va_end(args);
 
-    return true;
+
+    // parent process
+    int status;
+    if (waitpid(processId, &status, 0) == -1) {
+        syslog(LOG_ERR, "waitpid failed: %m");
+        return false;
+    }
+
+    // Check if the child process terminated normally
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        return true;
+    }
+
+    syslog(LOG_ERR, "Command %s failed with exit status %d", command[0], WEXITSTATUS(status));
+    return false; // Command failed or returned a non-zero exi
+
 }
 
 /**
